@@ -1,1 +1,491 @@
-T1IR
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Grid Connection Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a1e;
+            color: #00ffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #grid {
+            display: inline-grid;
+            grid-template-columns: repeat(14, 30px);
+            gap: 1px;
+            background-color: #16213e;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: #0f3460;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s;
+            border-radius: 3px;
+        }
+        .cell:hover {
+            background-color: #1a5f7a;
+            box-shadow: 0 0 5px #00ffff;
+        }
+        .power-node {
+            color: #ffd700;
+            text-shadow: 0 0 5px #ffd700, 0 0 10px #ffd700;
+        }
+        .wire {
+            background-color: #39FF14;
+            box-shadow: 0 0 5px #39FF14, 0 0 10px #39FF14;
+            animation: pulse 1s infinite;
+        }
+        .insulator {
+            background-color: #4a4e69;
+        }
+        .conductor {
+            background-color: #22577a;
+        }
+        .bridge {
+            background-color: #ff6b6b;
+            box-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b;
+        }
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        #menu, #tutorial, #game-ui, #end-game {
+            background-color: rgba(22, 33, 62, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            margin: 0 auto;
+            box-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
+        }
+        button {
+            background-color: #e94560;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Orbitron', sans-serif;
+        }
+        button:hover {
+            background-color: #ff6b6b;
+            box-shadow: 0 0 10px #ff6b6b;
+        }
+        select {
+            padding: 5px;
+            margin: 10px 0;
+            width: 100%;
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0f3460;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+        }
+        #notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(74, 78, 105, 0.8);
+            color: #00ffff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+            box-shadow: 0 0 10px #00ffff;
+        }
+        #game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        h1, h2 {
+            color: #ff6b6b;
+            text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="menu">
+            <h1>Power Grid Connection</h1>
+            <p>Connect the nodes and optimize your score!</p>
+            <button id="start-game">Start Game</button>
+            <button id="show-tutorial">Tutorial</button>
+            <div>
+                <label for="difficulty">Difficulty:</label>
+                <select id="difficulty">
+                    <option value="Easy">Easy</option>
+                    <option value="Normal" selected>Normal</option>
+                    <option value="Hard">Hard</option>
+                </select>
+            </div>
+        </div>
+        <div id="tutorial" style="display: none;">
+            <h2>How to Play</h2>
+            <p>1. Connect power nodes (⚡) using wires (━).</p>
+            <p>2. Avoid insulators (⬛) and use conductors (⬜) to your advantage.</p>
+            <p>3. Use bridges (╋) to cross wires (limited to 3).</p>
+            <p>4. Each wire segment costs 1 point.</p>
+            <p>5. Connecting nodes grants 50-point bonuses.</p>
+            <p>6. Click and drag to place wires (orthogonal and diagonal).</p>
+            <p>7. Connect all nodes to win!</p>
+            <button id="back-to-menu">Back to Main Menu</button>
+        </div>
+        <div id="game-ui" style="display: none;">
+            <div id="game-info">
+                <span>Score: <span id="score">0</span></span>
+                <span>Bridges: <span id="bridges">3</span></span>
+                <span>Connected: <span id="connected">0</span>/<span id="total-nodes">0</span></span>
+            </div>
+            <div id="grid"></div>
+        </div>
+        <div id="end-game" style="display: none;">
+            <h2>Game Over</h2>
+            <p>All nodes connected!</p>
+            <p>Final Score: <span id="final-score"></span></p>
+            <button id="play-again">Play Again</button>
+            <button id="return-to-menu">Main Menu</button>
+        </div>
+    </div>
+    <div id="notification"></div>
+
+    <script>
+        // Game constants
+        const GRID_SIZE = 14;
+        const WIRE_COST = 1;
+        const NODE_BONUS = 50;
+        const MIN_NODES = 5;
+        const MAX_NODES = 10;
+
+        // Unicode characters for game elements
+        const POWER_NODE = '⚡';
+        const WIRE = '━';
+        const INSULATOR = '⬛';
+        const CONDUCTOR = '⬜';
+        const BRIDGE = '╋';
+
+        // Difficulty settings
+        const DIFFICULTIES = {
+            Easy: { nodeCount: 5, obstacleDensity: 0.1 },
+            Normal: { nodeCount: 7, obstacleDensity: 0.15 },
+            Hard: { nodeCount: 10, obstacleDensity: 0.2 },
+        };
+
+        // Game state
+        let gameState = 'menu';
+        let difficulty = 'Normal';
+        let grid = [];
+        let score = 0;
+        let remainingBridges = 3;
+        let connectedNodes = 0;
+        let totalNodes = 0;
+        let isDragging = false;
+        let dragStart = null;
+        let dragEnd = null;
+
+        // DOM Elements
+        const menuElement = document.getElementById('menu');
+        const tutorialElement = document.getElementById('tutorial');
+        const gameUIElement = document.getElementById('game-ui');
+        const endGameElement = document.getElementById('end-game');
+        const gridElement = document.getElementById('grid');
+        const notificationElement = document.getElementById('notification');
+        const scoreElement = document.getElementById('score');
+        const bridgesElement = document.getElementById('bridges');
+        const connectedElement = document.getElementById('connected');
+        const totalNodesElement = document.getElementById('total-nodes');
+        const finalScoreElement = document.getElementById('final-score');
+
+        // Event Listeners
+        document.getElementById('start-game').addEventListener('click', startGame);
+        document.getElementById('show-tutorial').addEventListener('click', showTutorial);
+        document.getElementById('back-to-menu').addEventListener('click', showMenu);
+        document.getElementById('play-again').addEventListener('click', startGame);
+        document.getElementById('return-to-menu').addEventListener('click', showMenu);
+        document.getElementById('difficulty').addEventListener('change', (e) => {
+            difficulty = e.target.value;
+        });
+
+        function showMenu() {
+            gameState = 'menu';
+            menuElement.style.display = 'block';
+            tutorialElement.style.display = 'none';
+            gameUIElement.style.display = 'none';
+            endGameElement.style.display = 'none';
+        }
+
+        function showTutorial() {
+            gameState = 'tutorial';
+            menuElement.style.display = 'none';
+            tutorialElement.style.display = 'block';
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            menuElement.style.display = 'none';
+            tutorialElement.style.display = 'none';
+            gameUIElement.style.display = 'block';
+            endGameElement.style.display = 'none';
+            initializeGrid();
+            renderGrid();
+            updateGameInfo();
+        }
+
+        function initializeGrid() {
+            grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            const { nodeCount, obstacleDensity } = DIFFICULTIES[difficulty];
+            
+            // Place power nodes
+            let placedNodes = 0;
+            while (placedNodes < nodeCount) {
+                const x = Math.floor(Math.random() * GRID_SIZE);
+                const y = Math.floor(Math.random() * GRID_SIZE);
+                if (!grid[y][x]) {
+                    grid[y][x] = POWER_NODE;
+                    placedNodes++;
+                }
+            }
+            totalNodes = placedNodes;
+
+            // Place obstacles
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (!grid[y][x] && Math.random() < obstacleDensity) {
+                        grid[y][x] = Math.random() < 0.5 ? INSULATOR : CONDUCTOR;
+                    }
+                }
+            }
+
+            score = 0;
+            connectedNodes = 0;
+            remainingBridges = 3;
+        }
+
+        function renderGrid() {
+            gridElement.innerHTML = '';
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.textContent = grid[y][x] || '';
+                    if (grid[y][x] === POWER_NODE) cell.classList.add('power-node');
+                    if (grid[y][x] === WIRE) cell.classList.add('wire');
+                    if (grid[y][x] === INSULATOR) cell.classList.add('insulator');
+                    if (grid[y][x] === CONDUCTOR) cell.classList.add('conductor');
+                    if (grid[y][x] === BRIDGE) cell.classList.add('bridge');
+                    cell.addEventListener('mousedown', handleCellMouseDown);
+                    cell.addEventListener('mouseenter', handleCellMouseEnter);
+                    cell.addEventListener('mouseup', handleCellMouseUp);
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellMouseDown(event) {
+            if (gameState !== 'playing') return;
+            isDragging = true;
+            const x = parseInt(event.target.dataset.x);
+            const y = parseInt(event.target.dataset.y);
+            dragStart = { x, y };
+            dragEnd = { x, y };
+        }
+
+        function handleCellMouseEnter(event) {
+            if (!isDragging || gameState !== 'playing') return;
+            const x = parseInt(event.target.dataset.x);
+            const y = parseInt(event.target.dataset.y);
+            dragEnd = { x, y };
+            highlightPath();
+        }
+
+        function handleCellMouseUp() {
+            if (!isDragging || gameState !== 'playing') return;
+            isDragging = false;
+            placeWire(dragStart.x, dragStart.y, dragEnd.x, dragEnd.y);
+            dragStart = null;
+            dragEnd = null;
+            removeHighlight();
+        }
+
+        function highlightPath() {
+            removeHighlight();
+            const path = getPath(dragStart.x, dragStart.y, dragEnd.x, dragEnd.y);
+            path.forEach(({ x, y }) => {
+                const cell = gridElement.children[y * GRID_SIZE + x];
+                cell.style.boxShadow = '0 0 10px #39FF14, 0 0 20px #39FF14';
+            });
+        }
+
+        function removeHighlight() {
+            for (let cell of gridElement.children) {
+                cell.style.boxShadow = '';
+            }
+        }
+
+        function getPath(startX, startY, endX, endY) {
+            const path = [];
+            let x = startX;
+            let y = startY;
+            const dx = Math.sign(endX - startX);
+            const dy = Math.sign(endY - startY);
+
+            while (x !== endX || y !== endY) {
+                path.push({ x, y });
+                if (x !== endX) x += dx;
+                if (y !== endY) y += dy;
+            }
+            path.push({ x: endX, y: endY });
+
+            return path;
+        }
+
+        function placeWire(startX, startY, endX, endY) {
+            const path = getPath(startX, startY, endX, endY);
+            let wireCost = 0;
+            let isValidPath = true;
+
+            for (const { x, y } of path) {
+                if (grid[y][x] === INSULATOR) {
+                    isValidPath = false;
+                    showNotification('Cannot place wire through insulator');
+                    break;
+                }
+
+                if (grid[y][x] === WIRE) {
+                    if (remainingBridges > 0) {
+                        grid[y][x] = BRIDGE;
+                        remainingBridges--;
+                    } else {
+                        isValidPath = false;
+                        showNotification('No more bridges available');
+                        break;
+                    }
+                } else if (!grid[y][x] || grid[y][x] === CONDUCTOR) {
+                    grid[y][x] = WIRE;
+                    wireCost++;
+                }
+            }
+
+            if (isValidPath) {
+                score -= wireCost;
+                checkConnections();
+                renderGrid();
+                updateGameInfo();
+            }
+        }
+
+        function checkConnections() {
+            const visited = new Set();
+            let connectedCount = 0;
+
+            function dfs(x, y) {
+                if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+                const key = `${x},${y}`;
+                if (visited.has(key)) return;
+                visited.add(key);
+
+                if (grid[y][x] === POWER_NODE) connectedCount++;
+
+                if (grid[y][x] === WIRE || grid[y][x] === BRIDGE || grid[y][x] === CONDUCTOR || grid[y][x] === POWER_NODE) {
+                    dfs(x + 1, y);
+                    dfs(x - 1, y);
+                    dfs(x, y + 1);
+                    dfs(x, y - 1);
+                    dfs(x + 1, y + 1);
+                    dfs(x + 1, y - 1);
+                    dfs(x - 1, y + 1);
+                    dfs(x - 1, y - 1);
+                }
+            }
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (grid[y][x] === POWER_NODE) {
+                        dfs(x, y);
+                        break;
+                    }
+                }
+                if (connectedCount > 0) break;
+            }
+
+            if (connectedCount > connectedNodes) {
+                const newConnections = connectedCount - connectedNodes;
+                score += newConnections * NODE_BONUS;
+                showNotification(`Connected ${newConnections} new node${newConnections > 1 ? 's' : ''}! +${newConnections * NODE_BONUS} points`);
+            }
+
+            connectedNodes = connectedCount;
+
+            if (connectedNodes === totalNodes) {
+                endGame();
+            }
+        }
+
+        function updateGameInfo() {
+            scoreElement.textContent = score;
+            bridgesElement.textContent = remainingBridges;
+            connectedElement.textContent = connectedNodes;
+            totalNodesElement.textContent = totalNodes;
+        }
+
+        function showNotification(message) {
+            notificationElement.textContent = message;
+            notificationElement.style.display = 'block';
+            setTimeout(() => {
+                notificationElement.style.display = 'none';
+            }, 3000);
+        }
+
+        function endGame() {
+            gameState = 'end';
+            gameUIElement.style.display = 'none';
+            endGameElement.style.display = 'block';
+            finalScoreElement.textContent = score;
+        }
+
+        // Initialize the game
+        showMenu();
+
+        // Add event listener for mouse up on the document to handle dragging outside the grid
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                handleCellMouseUp();
+            }
+        });
+
+        // Prevent default drag behavior on the grid
+        gridElement.addEventListener('dragstart', (e) => e.preventDefault());
+    </script>
+</body>
+</html>

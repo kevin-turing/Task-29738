@@ -1,1 +1,258 @@
-T1MB
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Circuit</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<style>
+body {
+    background: #000;
+    color: #0ff;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(14, 30px);
+    gap: 2px;
+    margin-top: 20px;
+}
+
+.cell {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #0ff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.node { color: #ff0; }
+.insulator { color: #f00; }
+.conductor { color: #0f0; }
+.wire { background: #0ff; }
+
+#controls, #menu {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#score, #notifications {
+    margin-top: 10px;
+    color: #ff0;
+}
+
+#notifications {
+    height: 20px;
+    color: #0f0;
+}
+
+button {
+    background: #0ff;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    cursor: pointer;
+    color: #000;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+.wire { animation: pulse 1s infinite; }
+</style>
+</head>
+<body>
+<div id="game-container">
+    <div id="menu">
+        <button onclick="startGame('easy')">Start Easy</button>
+        <button onclick="startGame('normal')">Start Normal</button>
+        <button onclick="startGame('hard')">Start Hard</button>
+        <button onclick="showTutorial()">Tutorial</button>
+    </div>
+    <div id="board"></div>
+    <div id="controls" style="display:none;">
+        <div id="score">Score: 0</div>
+        <div id="notifications"></div>
+    </div>
+    <div id="tutorial" style="display:none;">
+        <!-- Tutorial content goes here -->
+    </div>
+</div>
+
+<script>
+let board = document.getElementById('board');
+let scoreDisplay = document.getElementById('score');
+let notifications = document.getElementById('notifications');
+let controls = document.getElementById('controls');
+let menu = document.getElementById('menu');
+let gameState = {
+    grid: [],
+    score: 0,
+    nodesConnected: 0,
+    wiresPlaced: 0,
+    bridgesLeft: 3,
+    isDragging: false,
+    startCell: null,
+    endCell: null
+};
+
+function initializeGame(difficulty) {
+    let nodeCount, obstacleDensity;
+    switch(difficulty) {
+        case 'easy': nodeCount = 5; obstacleDensity = 0.1; break;
+        case 'normal': nodeCount = 7; obstacleDensity = 0.2; break;
+        case 'hard': nodeCount = 10; obstacleDensity = 0.3; break;
+    }
+    
+    gameState.grid = Array(14).fill().map(() => Array(14).fill(''));
+    placeNodes(nodeCount);
+    placeObstacles(obstacleDensity);
+    renderBoard();
+    controls.style.display = 'block';
+    menu.style.display = 'none';
+}
+
+function placeNodes(count) {
+    for(let i = 0; i < count; i++) {
+        let x, y;
+        do {
+            x = Math.floor(Math.random() * 14);
+            y = Math.floor(Math.random() * 14);
+        } while(gameState.grid[y][x] !== '');
+        gameState.grid[y][x] = 'node';
+    }
+}
+
+function placeObstacles(density) {
+    for(let y = 0; y < 14; y++) {
+        for(let x = 0; x < 14; x++) {
+            if(gameState.grid[y][x] === '' && Math.random() < density) {
+                gameState.grid[y][x] = Math.random() < 0.5 ? 'insulator' : 'conductor';
+            }
+        }
+    }
+}
+
+function renderBoard() {
+    board.innerHTML = '';
+    for(let y = 0; y < 14; y++) {
+        for(let x = 0; x < 14; x++) {
+            let cell = document.createElement('div');
+            cell.className = 'cell ' + (gameState.grid[y][x] || '');
+            cell.dataset.x = x;
+            cell.dataset.y = y;
+            cell.addEventListener('mousedown', startWire);
+            cell.addEventListener('mouseenter', dragWire);
+            cell.addEventListener('mouseup', endWire);
+            board.appendChild(cell);
+        }
+    }
+}
+
+function startWire(e) {
+    if(e.target.classList.contains('node') || e.target.classList.contains('wire')) {
+        gameState.isDragging = true;
+        gameState.startCell = {x: parseInt(e.target.dataset.x), y: parseInt(e.target.dataset.y)};
+    }
+}
+
+function dragWire(e) {
+    if(gameState.isDragging) {
+        gameState.endCell = {x: parseInt(e.target.dataset.x), y: parseInt(e.target.dataset.y)};
+        updateWire();
+    }
+}
+
+function endWire(e) {
+    if(gameState.isDragging) {
+        gameState.isDragging = false;
+        if(gameState.startCell && gameState.endCell) {
+            placeWire();
+        }
+    }
+}
+
+function updateWire() {
+    // Here you would update the visual representation of the wire during drag
+    // This might involve temporary DOM elements or canvas drawing for diagonals
+}
+
+function placeWire() {
+    // Logic to place wire, check for valid connections, update score, etc.
+    // This is a placeholder for actual implementation
+    gameState.wiresPlaced++;
+    gameState.score -= 1;
+    checkNodeConnection();
+    renderBoard();
+    updateScore();
+}
+
+function checkNodeConnection() {
+    // Check if nodes are connected, update score if so
+    if(/* connection logic */) {
+        gameState.score += 50;
+        gameState.nodesConnected++;
+        showNotification("Node connected!");
+        if(gameState.nodesConnected === gameState.grid.flat().filter(cell => cell === 'node').length) {
+            endGame();
+        }
+    }
+}
+
+function updateScore() {
+    scoreDisplay.textContent = `Score: ${gameState.score}`;
+}
+
+function showNotification(message) {
+    notifications.textContent = message;
+    setTimeout(() => notifications.textContent = '', 3000);
+}
+
+function endGame() {
+    showNotification("All nodes connected! Game Over.");
+    setTimeout(() => {
+        if(confirm("Play again?")) {
+            startGame('normal'); // Or whatever default
+        } else {
+            showMenu();
+        }
+    }, 1000);
+}
+
+function showMenu() {
+    controls.style.display = 'none';
+    menu.style.display = 'block';
+}
+
+function showTutorial() {
+    // Implement tutorial display
+}
+
+function startGame(difficulty) {
+    initializeGame(difficulty);
+}
+
+// Start with the menu visible
+showMenu();
+</script>
+</body>
+</html>
